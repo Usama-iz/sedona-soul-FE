@@ -1,0 +1,21 @@
+.next
+node_modules
+out
+dist
+.env
+.env.local
+.env.*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.DS_Store
+Docx/
+.env.example
+
+# clerk configuration (can include secrets)
+/.clerk/
+package-lock.json
+branch_structure.json
+temp_auto_push.bat
+temp_interactive_push.bat
