@@ -24,7 +24,8 @@ import {
   validateRequired,
 } from "@/lib/auth/auth-form-validation";
 import { authProviderIds } from "@/lib/auth/next-auth-config";
-import { authRedirectRoot } from "@/lib/auth/routes";
+import { authRedirectRoot, verifyEmailUrl } from "@/lib/auth/routes";
+import { signupWithEmailVerification } from "@/lib/auth/email-verification-service";
 import {
   submitForgotPassword,
   submitResetPassword,
@@ -244,6 +245,7 @@ function LoginPasswordForm() {
 }
 
 function SignupPasswordForm() {
+  const router = useRouter();
   const { toast } = useToast();
   const [firstName, setFirstName] = useState("");
   const [email, setEmail] = useState("");
@@ -275,19 +277,18 @@ function SignupPasswordForm() {
     setIsSubmitting(true);
 
     try {
-      const result = await signIn("credentials", {
-        authMode: "signup",
-        email,
-        firstName,
+      const result = await signupWithEmailVerification({
+        email: email.trim().toLowerCase(),
         password,
-        redirect: false,
+        passwordConfirmation: password,
+        preferredName: firstName.trim(),
       });
 
-      if (result?.error) {
-        throw new Error(result.code ?? result.error);
-      }
-
-      window.location.assign(getRedirectTarget(authRedirectRoot));
+      router.push(
+        `${verifyEmailUrl}?email=${encodeURIComponent(
+          result.user.email,
+        )}&expiresInHours=${encodeURIComponent(String(result.expiresInHours))}`,
+      );
     } catch (error) {
       const authError = normalizeAuthError(error);
 

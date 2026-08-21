@@ -1,5 +1,6 @@
 export type AuthErrorCode =
   | "duplicate_email"
+  | "email_not_verified"
   | "wrong_password"
   | "validation_error"
   | "auth_configuration_error"
@@ -77,6 +78,10 @@ export function normalizeAuthError(error: unknown): AuthFormError {
       return { code: "duplicate_email" };
     }
 
+    if (message.includes("email_not_verified") || message.includes("verify your email")) {
+      return { code: "email_not_verified" };
+    }
+
     if (message.includes("validation_error")) {
       return { code: "validation_error" };
     }
@@ -119,6 +124,8 @@ export function getAuthErrorMessage(error: AuthFormError) {
   switch (error.code) {
     case "duplicate_email":
       return "An account with this email already exists. Try signing in instead.";
+    case "email_not_verified":
+      return "Check your inbox and verify your email address before signing in.";
     case "wrong_password":
       return "Email or password is incorrect. Please check both and try again.";
     case "validation_error":

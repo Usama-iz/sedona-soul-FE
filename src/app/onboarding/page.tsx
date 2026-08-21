@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
-import { OnboardingForm, OnboardingCompletionLinks } from "@/components/onboarding/onboarding-form";
-import { OnboardingShell } from "@/components/onboarding/onboarding-shell";
-import { getBackendCurrentUser } from "@/lib/auth/backend-auth";
+import { getBackendSetupState } from "@/lib/onboarding/backend-setup";
+import { getOnboardingStepHref, isOnboardingStep } from "@/lib/onboarding/setup-flow";
 import { authRedirectRoot, onboardingRoot, signInUrl, userAppRoot } from "@/lib/auth/routes";
 
 export default async function OnboardingPage() {
@@ -13,24 +12,20 @@ export default async function OnboardingPage() {
     redirect(`${signInUrl}?redirect_url=${encodeURIComponent(onboardingRoot)}`);
   }
 
-  let shouldRedirectHome = false;
-
   try {
-    const { user } = await getBackendCurrentUser(session);
-    shouldRedirectHome = user.onboardingComplete && user.baselineCompleted;
+    const setupData = await getBackendSetupState(session);
+
+    if (setupData.setup.isComplete || !setupData.setup.nextSetupStep) {
+      redirect(userAppRoot);
+    }
+
+    if (!isOnboardingStep(setupData.setup.nextSetupStep)) {
+      redirect(authRedirectRoot);
+    }
+
+    redirect(getOnboardingStepHref(setupData.setup.nextSetupStep));
   } catch (error) {
-    console.error("Unable to load backend onboarding state", error);
+    console.error("Unable to load backend onboarding setup state", error);
     redirect(authRedirectRoot);
   }
-
-  if (shouldRedirectHome) {
-    redirect(userAppRoot);
-  }
-
-  return (
-    <OnboardingShell>
-      <OnboardingForm />
-      <OnboardingCompletionLinks />
-    </OnboardingShell>
-  );
 }

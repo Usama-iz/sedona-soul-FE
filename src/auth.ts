@@ -3,7 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 
 import { getRoleForEmail, type AppRole } from "@/lib/auth/admin";
-import { BackendAuthError, loginWithBackendCredentials, signupWithBackendCredentials } from "@/lib/auth/backend-auth";
+import { BackendAuthError, loginWithBackendCredentials } from "@/lib/auth/backend-auth";
 import { signInUrl } from "@/lib/auth/routes";
 
 type AuthProvider = "authjs" | "credentials";
@@ -91,10 +91,8 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        const authMode = readCredentialValue(credentials?.authMode);
         const email = readCredentialValue(credentials?.email).toLowerCase();
         const password = readCredentialValue(credentials?.password);
-        const firstName = readCredentialValue(credentials?.firstName);
 
         if (!email || !password) {
           return null;
@@ -103,15 +101,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
         let result;
 
         try {
-          result =
-            authMode === "signup"
-              ? await signupWithBackendCredentials({
-                  email,
-                  password,
-                  passwordConfirmation: password,
-                  preferredName: firstName,
-                })
-              : await loginWithBackendCredentials({ email, password });
+          result = await loginWithBackendCredentials({ email, password });
         } catch (error) {
           if (error instanceof BackendAuthError) {
             throw new BackendCredentialsSignin(getCredentialsSigninCode(error));
@@ -146,6 +136,10 @@ function getCredentialsSigninCode(error: BackendAuthError) {
 
   if (error.code === "INVALID_CREDENTIALS") {
     return "invalid_credentials";
+  }
+
+  if (error.code === "EMAIL_NOT_VERIFIED") {
+    return "email_not_verified";
   }
 
   if (error.code === "USER_NOT_ACTIVE") {

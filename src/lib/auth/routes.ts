@@ -1,7 +1,8 @@
-export const publicRoutes = ["/login", "/signup", "/signup/invite", "/forgot-password", "/reset-password", "/onboarding"];
+export const publicRoutes = ["/login", "/signup", "/signup/invite", "/forgot-password", "/reset-password", "/verify-email", "/onboarding"];
 
 export const signInUrl = "/login";
 export const signUpUrl = "/signup";
+export const verifyEmailUrl = "/verify-email";
 export const authRedirectRoot = "/auth/redirect";
 export const userAppRoot = "/app/home";
 export const adminRoot = "/admin/dashboard";
