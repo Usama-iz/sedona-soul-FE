@@ -12,20 +12,22 @@ export default async function OnboardingPage() {
     redirect(`${signInUrl}?redirect_url=${encodeURIComponent(onboardingRoot)}`);
   }
 
+  let setupData;
+
   try {
-    const setupData = await getBackendSetupState(session);
-
-    if (setupData.setup.isComplete || !setupData.setup.nextSetupStep) {
-      redirect(userAppRoot);
-    }
-
-    if (!isOnboardingStep(setupData.setup.nextSetupStep)) {
-      redirect(authRedirectRoot);
-    }
-
-    redirect(getOnboardingStepHref(setupData.setup.nextSetupStep));
+    setupData = await getBackendSetupState(session);
   } catch (error) {
     console.error("Unable to load backend onboarding setup state", error);
     redirect(authRedirectRoot);
   }
+
+  if (setupData.setup.isComplete || !setupData.setup.nextSetupStep) {
+    redirect(userAppRoot);
+  }
+
+  if (!isOnboardingStep(setupData.setup.nextSetupStep)) {
+    redirect(authRedirectRoot);
+  }
+
+  redirect(getOnboardingStepHref(setupData.setup.nextSetupStep));
 }

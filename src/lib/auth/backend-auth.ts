@@ -153,6 +153,154 @@ export async function getBackendCurrentUser(session: Session) {
   });
 }
 
+export type BackendDashboardContext = {
+  profile: {
+    id: string;
+    email: string;
+    preferredName: string | null;
+    role: "user" | "admin";
+    status: "active" | "disabled" | "deleted";
+    onboardingComplete: boolean;
+    baselineCompleted: boolean;
+    currentPhase: string;
+    currentModule: string | null;
+  };
+  journey: {
+    currentPhase: string;
+    currentModule: string | null;
+    phaseProgress: {
+      stabilize: number;
+      heal: number;
+      elevate: number;
+    };
+  };
+  dailySession: {
+    hasSessionToday: boolean;
+    todaySession: {
+      id: string;
+      status: string;
+      closeState: {
+        reason: string | null;
+      } | null;
+    } | null;
+    latestSession: {
+      id: string;
+      status: string;
+    } | null;
+    nextStep: {
+      nextScreen?: string;
+    } | null;
+  };
+  setup: {
+    isComplete: boolean;
+    status: string;
+  };
+  workflow: {
+    status: string | null;
+    currentPhase: string | null;
+    currentChapter: string | null;
+    currentNodeId: string | null;
+    nextNodeId: string | null;
+    holdState: string | null;
+    activationScore: number | null;
+    progress: {
+      daysInPhase: number | null;
+      consecutiveGreenLogins: number | null;
+      consecutiveHardDays: number | null;
+      chaptersComplete: string[];
+      chapterProgress: unknown;
+      phaseReadiness: unknown;
+    };
+    safetyLock: {
+      result: string;
+      primaryReasonCode: string | null;
+      affectedGuardrails: string[];
+    } | null;
+  } | null;
+  stats: {
+    hardDaySequenceCount: number;
+    latestAnxietyLevel: number | null;
+    daysInPhase: number | null;
+    consecutiveGreenLogins: number | null;
+    consecutiveHardDays: number | null;
+    currentChapter: string | null;
+    currentNodeId: string | null;
+    holdState: string | null;
+    chapterProgress: unknown;
+    phaseReadiness: unknown;
+    regulationStreak: number | null;
+  };
+  latestRecommendation: {
+    type?: string;
+    title?: string;
+    reason?: string;
+    target?: string;
+  } | null;
+  safety: {
+    latestEvent: {
+      id: string;
+      severity: string;
+      trigger: string;
+      createdAt: string;
+    } | null;
+  };
+  partnerStatus: {
+    status: "not_linked" | "invited" | "linked" | "solo";
+    relationshipId: string | null;
+    partner: {
+      id: string;
+      displayName: string | null;
+      initials: string;
+    } | null;
+    invite: {
+      code: string | null;
+      inviteUrl: string | null;
+    } | null;
+    sharing: {
+      privateByDefault: boolean;
+      rawPrivateContentShared: boolean;
+    };
+    timestamps: {
+      acceptedAt: string | null;
+      soloSelectedAt: string | null;
+      createdAt: string | null;
+      updatedAt: string | null;
+    };
+  };
+  audiobook: {
+    hasProgress: boolean;
+    progress: {
+      playbackTimestampSeconds: number;
+      completed: boolean;
+      playbackSpeed: number | null;
+      updatedAt: string;
+    } | null;
+    chapter: {
+      id: string;
+      title: string;
+      phase: string | null;
+      path: string | null;
+      chapterOrder: number;
+      durationSeconds: number | null;
+      audio: {
+        fileUrl: string | null;
+        mimeType: string | null;
+        fileSizeBytes: number | null;
+        contentDocumentId: string;
+        version: number;
+      };
+    } | null;
+  };
+};
+
+export async function getBackendDashboard(session: Session) {
+  const token = createBackendAuthToken(session);
+
+  return backendAuthRequest<BackendDashboardContext>("/dashboard", token, {
+    method: "GET",
+  });
+}
+
 export async function completeBackendOnboarding(session: Session) {
   const token = createBackendAuthToken(session);
 

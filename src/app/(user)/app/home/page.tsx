@@ -1,14 +1,13 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowRight, Check, Heart, Shield } from "lucide-react";
 
+import { auth } from "@/auth";
 import { PageShell } from "@/components/layouts/page-shell";
 import { GreetingHeader } from "@/components/shared/greeting-header";
-
-const stats = [
-  { value: "12", label: "day regulation streak", tone: "text-[#B04F24]" },
-  { value: "7→4", label: "anxiety, last 30 days", tone: "text-[#3E7A5E]" },
-  { value: "24", label: "days in Phase 1", tone: "text-[#465980]" },
-];
+import { ErrorState } from "@/components/ui/error-state";
+import { getBackendDashboard } from "@/lib/auth/backend-auth";
+import { onboardingRoot, signInUrl } from "@/lib/auth/routes";
 
 const tools = [
   { title: "Sacred Pause", subtitle: "2-min reset", accent: "#B04F24", tint: "#F4E2D6" },
@@ -16,28 +15,164 @@ const tools = [
   { title: "Anger Release", subtitle: "Move the heat", accent: "#B04F24", tint: "#F4E2D6" },
 ];
 
-export default function HomePage() {
+function formatPhaseLabel(phase: string | null | undefined) {
+  if (!phase) {
+    return "Stabilize";
+  }
+
+  return phase.charAt(0).toUpperCase() + phase.slice(1);
+}
+
+function formatChapterLabel(chapter: string | null | undefined) {
+  if (!chapter) {
+    return "Getting your starting chapter ready";
+  }
+
+  return chapter.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatDaysLabel(daysInPhase: number | null | undefined) {
+  if (daysInPhase === null || daysInPhase === undefined) {
+    return "Starting your phase journey";
+  }
+
+  return `${daysInPhase}`;
+}
+
+function formatAnxietyTrend(value: number | null | undefined) {
+  if (value === null || value === undefined) {
+    return "Not tracked yet";
+  }
+
+  return `${value}/10`;
+}
+
+function getNextActionCopy(nextScreen: string | undefined, recommendationTitle: string | undefined) {
+  if (recommendationTitle) {
+    return recommendationTitle;
+  }
+
+  if (nextScreen === "safety_questions") {
+    return "Begin today’s safety check";
+  }
+
+  if (nextScreen === "pacing_question") {
+    return "Resume today’s check-in";
+  }
+
+  if (nextScreen === "hold_position") {
+    return "Hold position today";
+  }
+
+  if (nextScreen === "support_check") {
+    return "Review your support plan";
+  }
+
+  return "How are you arriving today?";
+}
+
+function getNextActionHref(nextScreen: string | undefined) {
+  if (nextScreen === "support_check" || nextScreen === "hold_position" || nextScreen === "pacing_question" || nextScreen === "safety_questions") {
+    return "/app/today";
+  }
+
+  return "/app/today";
+}
+
+export default async function HomePage() {
+  const session = await auth();
+
+  if (!session?.user) {
+    redirect(signInUrl);
+  }
+
+  let dashboard;
+
+  try {
+    dashboard = await getBackendDashboard(session);
+  } catch (error) {
+    console.error("Unable to load dashboard context", error);
+
+    return (
+      <PageShell maxWidth="md">
+        <ErrorState
+          className="min-h-[320px]"
+          description="We could not load your live dashboard from the backend. Your account is still safe; try refreshing this page."
+          title="Dashboard unavailable"
+        />
+      </PageShell>
+    );
+  }
+
+  if (!dashboard.setup.isComplete) {
+    redirect(onboardingRoot);
+  }
+
+  const preferredName = dashboard.profile.preferredName ?? "there";
+  const currentPhase = formatPhaseLabel(dashboard.journey.currentPhase);
+  const currentChapter = formatChapterLabel(dashboard.workflow?.currentChapter ?? dashboard.stats.currentChapter ?? null);
+  const daysInPhase = dashboard.stats.daysInPhase;
+  const regulationStreak = dashboard.stats.regulationStreak;
+  const latestAnxietyLevel = dashboard.stats.latestAnxietyLevel;
+  const latestRecommendation = dashboard.latestRecommendation;
+  const nextScreen = dashboard.dailySession.nextStep?.nextScreen;
+  const nextActionLabel = getNextActionCopy(nextScreen, latestRecommendation?.title);
+  const nextActionHref = getNextActionHref(nextScreen);
+  const partnerInitials = dashboard.partnerStatus.partner?.initials ?? "SO";
+  const partnerName = dashboard.partnerStatus.partner?.displayName ?? (
+    dashboard.partnerStatus.status === "linked" ? "Your partner" : "Solo path"
+  );
+  const partnerSummary =
+    dashboard.partnerStatus.status === "linked"
+      ? "Linked · private by default"
+      : dashboard.partnerStatus.status === "invited"
+        ? "Invite sent · waiting to connect"
+        : dashboard.partnerStatus.status === "solo"
+          ? "Solo path · your work still counts"
+          : "Not linked yet";
+  const audiobookTitle = dashboard.audiobook.chapter?.title ?? "No audio in progress yet";
+  const audiobookSubtitle = dashboard.audiobook.hasProgress
+    ? "Resume where you left off"
+    : "Audio will appear here once content is published";
+  const stats = [
+    {
+      value: regulationStreak !== null && regulationStreak !== undefined ? String(regulationStreak) : "--",
+      label: "day regulation streak",
+      tone: "text-[#B04F24]",
+    },
+    {
+      value: formatAnxietyTrend(latestAnxietyLevel),
+      label: "latest anxiety level",
+      tone: "text-[#3E7A5E]",
+    },
+    {
+      value: formatDaysLabel(daysInPhase),
+      label: "days in Phase 1",
+      tone: "text-[#465980]",
+    },
+  ];
+
   return (
     <PageShell>
       <GreetingHeader
-        description="However you're arriving today, there's nothing to fix first."
-        eyebrow="Friday, July 10 · Day 24"
-        title="Good morning, Maya."
+        description={latestRecommendation?.reason ?? "However you're arriving today, there is nothing to fix first."}
+        eyebrow={`Phase 1 · ${currentPhase}${daysInPhase !== null && daysInPhase !== undefined ? ` · Day ${daysInPhase}` : ""}`}
+        title={`Good morning, ${preferredName}.`}
       />
       <div className="mt-6 grid gap-4 min-[575px]:grid-cols-2 lg:grid-cols-[1.2fr_1fr]">
         <Link
           className="relative min-h-[210px] overflow-hidden rounded-[26px] bg-[#6F8275] shadow-[0_18px_36px_-18px_rgba(48,30,16,0.34)] min-[575px]:min-h-[240px] lg:min-h-[270px]"
-          href="/app/today"
+          href={nextActionHref}
         >
           <div className="absolute inset-0 bg-[linear-gradient(155deg,#B8C0B6_0%,#87978B_44%,#50685E_100%)]" />
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(18,54,44,0.12)_0%,rgba(18,54,44,0.72)_100%)]" />
           <div className="relative flex h-full flex-col justify-end p-6">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/75">Daily check-in</p>
             <h2 className="mt-2 max-w-[300px] font-serif text-[30px] font-normal leading-[1.16] text-[#FBF7EF]">
-              How are you arriving today?
+              {nextActionLabel}
             </h2>
             <div className="mt-5 inline-flex w-fit items-center gap-2 rounded-full bg-[#F4EFE6] px-5 py-3 text-sm font-semibold text-[#9A4220]">
-              Begin check-in
+              {dashboard.dailySession.hasSessionToday ? "Resume today" : "Begin check-in"}
               <ArrowRight aria-hidden="true" size={17} strokeWidth={2} />
             </div>
           </div>
@@ -49,9 +184,9 @@ export default function HomePage() {
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#E7E4D8]/60">Your journey</p>
               <p className="text-xs font-semibold text-[#E7B27E]">Phase 1 of 3</p>
             </div>
-            <h2 className="mt-3 font-serif text-[28px] font-normal leading-none">Stabilize</h2>
+            <h2 className="mt-3 font-serif text-[28px] font-normal leading-none">{currentPhase}</h2>
             <p className="mt-3 text-sm leading-6 text-[#E7E4D8]/65">
-              Chapter C — Regulate · building your nervous-system foundation.
+              {currentChapter} · {dashboard.workflow?.holdState ? `currently in ${dashboard.workflow.holdState.replace(/_/g, " ")}` : "building your nervous-system foundation"}.
             </p>
           </div>
           <div>
@@ -111,18 +246,34 @@ export default function HomePage() {
         >
           <div className="flex shrink-0 items-center">
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#465980] text-sm font-semibold text-white">
-              M
+              {partnerInitials.slice(0, 1)}
             </span>
             <span className="-ml-2 flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#EEF0F4] bg-[#B04F24] text-sm font-semibold text-white">
-              E
+              {partnerInitials.slice(1, 2) || partnerInitials.slice(0, 1)}
             </span>
           </div>
           <div className="min-w-0 flex-1">
-            <p className="font-semibold text-[#2C3A52]">You &amp; Evan</p>
-            <p className="mt-1 truncate text-sm text-[#6E7890]">Linked · both walking Phase 1</p>
+            <p className="font-semibold text-[#2C3A52]">{partnerName}</p>
+            <p className="mt-1 truncate text-sm text-[#6E7890]">{partnerSummary}</p>
           </div>
           <ArrowRight aria-hidden="true" className="text-[#465980]" size={18} strokeWidth={2} />
         </Link>
+
+        <section className="rounded-[22px] bg-white p-5 shadow-[0_10px_22px_-18px_rgba(48,30,16,0.22)] min-[575px]:col-span-2">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="sedona-eyebrow">Audiobook</p>
+              <h2 className="mt-2 font-serif text-2xl font-normal text-[#16352B]">{audiobookTitle}</h2>
+              <p className="mt-2 text-sm leading-6 text-[#7C7363]">{audiobookSubtitle}</p>
+            </div>
+            <Link
+              className="inline-flex rounded-full bg-[#12362C] px-4 py-2 text-sm font-semibold text-[#F4EFE6]"
+              href="/app/audiobook"
+            >
+              {dashboard.audiobook.hasProgress ? "Resume audio" : "Open audio"}
+            </Link>
+          </div>
+        </section>
 
         <section className="rounded-[22px] bg-white p-5 shadow-[0_10px_22px_-18px_rgba(48,30,16,0.22)] min-[575px]:col-span-2">
           <div className="flex items-start gap-3">
@@ -130,9 +281,13 @@ export default function HomePage() {
               <Shield aria-hidden="true" size={22} strokeWidth={1.8} />
             </div>
             <div>
-              <p className="font-serif text-2xl font-normal text-[#16352B]">Safety comes first</p>
+              <p className="font-serif text-2xl font-normal text-[#16352B]">
+                {dashboard.safety.latestEvent ? "Recent safety support" : "Safety comes first"}
+              </p>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-[#7C7363]">
-                Every daily check-in starts with a safety gate before workbook guidance, chat, or practices continue.
+                {dashboard.safety.latestEvent
+                  ? `Latest event: ${dashboard.safety.latestEvent.trigger.replace(/_/g, " ")} · severity ${dashboard.safety.latestEvent.severity}.`
+                  : "Every daily check-in starts with a safety gate before workbook guidance, chat, or practices continue."}
               </p>
             </div>
             <div className="ml-auto hidden h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#E0E8E1] text-[#3E7A5E] min-[575px]:flex">
